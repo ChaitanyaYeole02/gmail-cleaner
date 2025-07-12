@@ -4,10 +4,9 @@ Gmail Service Module
 Handles all Gmail API operations and actions
 """
 
-import base64
 import logging
 import os
-import io
+
 from typing import List, Dict, Optional
 
 from google.auth.transport.requests import Request
@@ -60,21 +59,97 @@ class GmailService:
             logger.error(f"Failed to setup Gmail API: {e}")
             raise
     
-    def search_emails_with_pdf_attachments(self, query: str) -> List[Dict]:
-        """Search for emails with PDF attachments"""
+    def search_emails_batch(self, query: str = '', max_emails: int = 1000, batch_size: int = 100):
+        """Generator that yields batches of emails for memory-efficient processing"""
         try:
-            # Search for emails with PDF attachments
-            results = self.service.users().messages().list(userId='me', q=query).execute()
+            next_page_token = None
+            emails_fetched = 0
             
-            messages = results.get('messages', [])
-            logger.info(f"Found {len(messages)} emails with PDF attachments")
+            while True:
+                # Prepare the request
+                request_params = {'userId': 'me', 'maxResults': batch_size}
+                if query:
+                    request_params['q'] = query
+                if next_page_token:
+                    request_params['pageToken'] = next_page_token
+                
+                # Execute the request
+                results = self.service.users().messages().list(**request_params).execute()
+                messages = results.get('messages', [])
+                
+                if not messages:
+                    break
+                
+                # Get full message details for this batch
+                batch_messages = []
+                for message in messages:
+                    msg = self.service.users().messages().get(userId='me', id=message['id']).execute()
+                    batch_messages.append(msg)
+                    emails_fetched += 1
+                    
+                    # Check if we've reached the limit
+                    if max_emails and emails_fetched >= max_emails:
+                        logger.info(f"Reached limit of {max_emails} emails")
+                        yield batch_messages
+                        return
+                
+                # Yield this batch for processing
+                yield batch_messages
+                
+                # Check if there are more pages
+                next_page_token = results.get('nextPageToken')
+                if not next_page_token:
+                    break
+                
+                logger.info(f"Fetched {emails_fetched} emails so far, getting next page...")
             
-            # Get full message details
+            logger.info(f"Total emails fetched: {emails_fetched}")
+            
+        except HttpError as error:
+            logger.error(f"An error occurred: {error}")
+            yield []
+    
+    def search_emails(self, query: str = None, max_emails: int = None) -> List[Dict]:
+        """Search for emails with optional query filter and pagination support (legacy method)"""
+        try:
             detailed_messages = []
-            for message in messages:
-                msg = self.service.users().messages().get(userId='me', id=message['id']).execute()
-                detailed_messages.append(msg)
+            next_page_token = None
+            emails_fetched = 0
             
+            while True:
+                # Prepare the request
+                request_params = {'userId': 'me'}
+                if query:
+                    request_params['q'] = query
+                if next_page_token:
+                    request_params['pageToken'] = next_page_token
+                
+                # Execute the request
+                results = self.service.users().messages().list(**request_params).execute()
+                messages = results.get('messages', [])
+                
+                if not messages:
+                    break
+                
+                # Get full message details for this batch
+                for message in messages:
+                    msg = self.service.users().messages().get(userId='me', id=message['id']).execute()
+                    detailed_messages.append(msg)
+                    emails_fetched += 1
+                    
+                    # Check if we've reached the limit
+                    if max_emails and emails_fetched >= max_emails:
+                        logger.info(f"Reached limit of {max_emails} emails")
+                        return detailed_messages
+                
+                # Check if there are more pages
+                next_page_token = results.get('nextPageToken')
+                if not next_page_token:
+                    break
+                
+                logger.info(f"Fetched {emails_fetched} emails so far, getting next page...")
+            
+            logger.info(f"Total emails fetched: {len(detailed_messages)}")
             return detailed_messages
             
         except HttpError as error:

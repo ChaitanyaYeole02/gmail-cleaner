@@ -24,19 +24,17 @@ DELETE_LABEL_NAME = "To Be Deleted"
 
 # Email Search Configuration
 PDF_SEARCH_QUERY = 'has:attachment filename:pdf'
+NO_PDF_SEARCH_QUERY = ''
 
 # Logging Configuration
 LOG_LEVEL = 'INFO'
 LOG_FORMAT = '%(asctime)s - %(levelname)s - %(message)s'
 
 # Processing Configuration
-MAX_EMAILS_TO_PROCESS = None  # Set to a number to limit processing, None for all
+MAX_EMAILS_TO_PROCESS = int(os.getenv('MAX_EMAILS_TO_PROCESS', 1000))  # Default limit of 1000 emails
 PROCESS_ONLY_FIRST_PDF = True  # Only process the first PDF attachment per email
 
 # AI Configuration
-USE_OPENAI = False
-OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')  # Set your OpenAI API key here
-
 USE_GEMINI = True
 GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')  # Set your Google Gemini API key here
 

@@ -111,7 +111,7 @@ class TestEmailGenerator:
         ]
     
     def generate_pdf(self, name, skills, project):
-        """Generate a simple PDF resume"""
+        """Generate a detailed PDF resume for better LLM testing"""
         buffer = BytesIO()
         p = canvas.Canvas(buffer, pagesize=letter)
         width, height = letter
@@ -124,30 +124,72 @@ class TestEmailGenerator:
         p.setFont("Helvetica", 12)
         p.drawString(50, height - 80, f"Email: {name.lower()}@example.com")
         p.drawString(50, height - 100, f"Phone: (555) 123-4567")
+        p.drawString(50, height - 120, f"Location: {random.choice(self.cities)}")
+        
+        # Summary
+        p.setFont("Helvetica-Bold", 14)
+        p.drawString(50, height - 160, "Professional Summary:")
+        p.setFont("Helvetica", 12)
+        p.drawString(50, height - 180, f"Experienced {skills[0]} developer with expertise in {skills[1]} and {skills[2]}.")
+        p.drawString(50, height - 200, f"Passionate about building scalable applications and leading development teams.")
         
         # Skills
         p.setFont("Helvetica-Bold", 14)
-        p.drawString(50, height - 140, "Skills:")
+        p.drawString(50, height - 240, "Technical Skills:")
         p.setFont("Helvetica", 12)
-        y_pos = height - 160
-        for skill in skills:
-            p.drawString(70, y_pos, f"• {skill}")
+        y_pos = height - 260
+        
+        # Primary skills
+        p.drawString(70, y_pos, f"• {skills[0]}: Advanced (5+ years)")
+        y_pos -= 20
+        p.drawString(70, y_pos, f"• {skills[1]}: Intermediate (3+ years)")
+        y_pos -= 20
+        p.drawString(70, y_pos, f"• {skills[2]}: Intermediate (2+ years)")
+        y_pos -= 20
+        
+        # Additional skills
+        additional_skills = random.sample([s for s in self.skills if s not in skills], 3)
+        for skill in additional_skills:
+            p.drawString(70, y_pos, f"• {skill}: Basic (1+ years)")
             y_pos -= 20
         
         # Projects
         p.setFont("Helvetica-Bold", 14)
-        p.drawString(50, y_pos - 20, "Projects:")
+        p.drawString(50, y_pos - 20, "Key Projects:")
         p.setFont("Helvetica", 12)
         y_pos -= 40
-        p.drawString(70, y_pos, f"• {project}")
+        p.drawString(70, y_pos, f"• {project} - Built using {skills[0]} and {skills[1]}")
+        y_pos -= 20
+        p.drawString(70, y_pos, f"  - Implemented RESTful APIs and microservices architecture")
+        y_pos -= 20
+        p.drawString(70, y_pos, f"  - Deployed on AWS with Docker and Kubernetes")
+        y_pos -= 20
         
         # Experience
         p.setFont("Helvetica-Bold", 14)
-        p.drawString(50, y_pos - 40, "Experience:")
+        p.drawString(50, y_pos - 20, "Professional Experience:")
+        p.setFont("Helvetica", 12)
+        y_pos -= 40
+        p.drawString(70, y_pos, f"• Senior {skills[0]} Developer at TechCorp (2021-2023)")
+        y_pos -= 20
+        p.drawString(70, y_pos, f"  - Led development of {project} using {skills[1]} and {skills[2]}")
+        y_pos -= 20
+        p.drawString(70, y_pos, f"  - Mentored 3 junior developers and improved team productivity by 40%")
+        y_pos -= 20
+        p.drawString(70, y_pos, f"• {skills[1]} Developer at StartupXYZ (2019-2021)")
+        y_pos -= 20
+        p.drawString(70, y_pos, f"  - Developed and maintained multiple web applications")
+        y_pos -= 20
+        p.drawString(70, y_pos, f"  - Collaborated with cross-functional teams using Agile methodology")
+        
+        # Education
+        p.setFont("Helvetica-Bold", 14)
+        p.drawString(50, y_pos - 40, "Education:")
         p.setFont("Helvetica", 12)
         y_pos -= 60
-        p.drawString(70, y_pos, "• Software Engineer at Tech Company (2020-2023)")
-        p.drawString(70, y_pos - 20, "• Junior Developer at Startup (2018-2020)")
+        p.drawString(70, y_pos, "• Bachelor's in Computer Science, University of Technology")
+        y_pos -= 20
+        p.drawString(70, y_pos, "• Relevant coursework: {skills[0]}, {skills[1]}, Software Engineering")
         
         p.save()
         pdf_data = buffer.getvalue()
@@ -241,22 +283,16 @@ class TestEmailGenerator:
         """Generate and send test emails"""
         logger.info(f"Starting to generate {total_emails} test emails...")
         
-        # Define email combinations
+        # Define email combinations - All with PDFs
         email_combinations = [
             # PDF + Body + Subject (most common)
-            {'has_pdf': True, 'has_body': True, 'has_subject': True, 'count': 80},
+            {'has_pdf': True, 'has_body': True, 'has_subject': True, 'count': 100},
             # PDF + Body + No Subject
-            {'has_pdf': True, 'has_body': True, 'has_subject': False, 'count': 20},
+            {'has_pdf': True, 'has_body': True, 'has_subject': False, 'count': 30},
             # PDF + No Body + Subject
-            {'has_pdf': True, 'has_body': False, 'has_subject': True, 'count': 15},
-            # No PDF + Body + Subject
-            {'has_pdf': False, 'has_body': True, 'has_subject': True, 'count': 50},
-            # No PDF + Body + No Subject
-            {'has_pdf': False, 'has_body': True, 'has_subject': False, 'count': 15},
-            # No PDF + No Body + Subject
-            {'has_pdf': False, 'has_body': False, 'has_subject': True, 'count': 10},
-            # No PDF + No Body + No Subject
-            {'has_pdf': False, 'has_body': False, 'has_subject': False, 'count': 10}
+            {'has_pdf': True, 'has_body': False, 'has_subject': True, 'count': 40},
+            # PDF + No Body + No Subject
+            {'has_pdf': True, 'has_body': False, 'has_subject': False, 'count': 30}
         ]
         
         sent_count = 0
@@ -298,13 +334,11 @@ def main():
     # Confirm before sending
     print(f"\n📋 About to send 200 test emails to clashofclanschatty@gmail.com")
     print("This will include:")
-    print("  • 80 emails with PDF + Body + Subject")
-    print("  • 20 emails with PDF + Body + No Subject")
-    print("  • 15 emails with PDF + No Body + Subject")
-    print("  • 50 emails with No PDF + Body + Subject")
-    print("  • 15 emails with No PDF + Body + No Subject")
-    print("  • 10 emails with No PDF + No Body + Subject")
-    print("  • 10 emails with No PDF + No Body + No Subject")
+    print("  • 100 emails with PDF + Body + Subject")
+    print("  • 30 emails with PDF + Body + No Subject")
+    print("  • 40 emails with PDF + No Body + Subject")
+    print("  • 30 emails with PDF + No Body + No Subject")
+    print("\n📄 All emails will have PDF attachments!")
     
     confirm = input("\nContinue? (y/N): ")
     if confirm.lower() != 'y':

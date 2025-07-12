@@ -9,6 +9,8 @@ A Python script that automatically scans Gmail emails for resume PDF attachments
 - 🎯 **Keyword Matching**: Uses your search criteria to determine resume qualification
 - 🏷️ **Automatic Labeling**: Labels unqualified resumes as "To Be Deleted"
 - 📊 **Detailed Reporting**: Shows scanning statistics and results
+- 🤖 **AI-Powered Job Application Filtering**: Pre-filters emails to only process job applications
+- 💾 **Memory-Efficient Batch Processing**: Processes emails in batches to avoid memory issues
 
 ## Prerequisites
 
@@ -50,10 +52,13 @@ pip install -r requirements.txt
    ```
 
 2. Edit `.env` and add your API keys:
+
    - `GEMINI_API_KEY`: Your Google Gemini API key
-   - `XAI_API_KEY`: Your XAI API key
    - `GOOGLE_APP_PASSWORD`: Your Google App Password
-   - `OPENAI_API_KEY`: Your OpenAI API key (if using OpenAI)
+
+3. Optional: Configure processing settings:
+   - `MAX_EMAILS_TO_PROCESS`: Maximum emails to process (default: 1000)
+   - `PDF_SEARCH_QUERY`: Custom Gmail search query (default: has:attachment filename:pdf)
 
 **Security Note**: The `.env` file is automatically ignored by Git to keep your API keys secure.
 

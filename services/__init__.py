@@ -4,7 +4,6 @@ Services package for Gmail Resume Scanner
 """
 
 from .gmail_service import GmailService
-from .resume_analyzer import ResumeAnalyzer
-from .email_analyzer import EmailAnalyzer
+from .pdf_processor import PDFProcessor
 
-__all__ = ['GmailService', 'ResumeAnalyzer', 'EmailAnalyzer']
+__all__ = ['GmailService', 'PDFProcessor']

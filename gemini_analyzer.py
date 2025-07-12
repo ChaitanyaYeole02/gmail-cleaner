@@ -29,6 +29,14 @@ class GeminiAnalyzer:
                 top_p=1.0,             # optional; shown for completeness
             ),
         )
+
+    def extract_email_components(self, email_data: Dict) -> Dict:
+        """Extract email components"""
+        subject = self._extract_subject(email_data)
+        body = self._extract_body(email_data)
+        has_pdf = self._has_pdf_attachment(email_data)
+
+        return {"subject": subject, "body": body, "has_pdf": has_pdf}
     
     def categorize_prompt(self, prompt: str) -> List[Dict]:
         """Categorize user prompt into structured rules"""
@@ -156,21 +164,89 @@ IMPORTANT: Return ONLY the JSON array, no other text or formatting. Understand p
         
         return []
     
-    def categorize_email(self, email_data: Dict, rules: List[Dict]) -> Optional[str]:
+    def is_job_application(self, email_components: Dict) -> bool:
+        """Check if an email is a job application"""
+        max_retries = 3
+        retry_delay = 1  # seconds
+        
+        for attempt in range(max_retries):
+            try:
+                # Extract email components
+                subject = email_components['subject']
+                body = email_components['body']
+                has_pdf = email_components['has_pdf']
+                
+                system_prompt = """
+You are an expert at identifying job application emails. Analyze the email content and determine if this is a job application.
+
+A job application email typically contains:
+- Professional language and tone
+- References to job positions, roles, or careers
+- Mention of skills, experience, or qualifications
+- Resume/CV attachments or references
+- Contact information for follow-up
+- Professional email signatures
+- References to job postings, companies, or hiring managers
+
+Non-job application emails include:
+- Personal emails
+- Marketing/promotional emails
+- Newsletter subscriptions
+- Social media notifications
+- Shopping receipts
+- Travel confirmations
+- General inquiries not related to employment
+
+Return only "YES" if it's a job application, or "NO" if it's not.
+"""
+
+                user_prompt = f"""
+Email to analyze:
+Subject: "{subject}"
+Body: "{body}"
+Has PDF: {has_pdf}
+
+Is this a job application email? Return only "YES" or "NO".
+"""
+
+                response = self.model.generate_content([system_prompt, user_prompt])
+                result = response.text.strip().upper()
+                
+                logger.debug(f"Job application check result: {result}")
+                
+                return result == "YES"
+                    
+            except Exception as e:
+                error_str = str(e)
+                if "429" in error_str or "quota" in error_str.lower():
+                    if attempt < max_retries - 1:
+                        wait_time = retry_delay * (2 ** attempt)  # Exponential backoff
+                        logger.warning(f"Rate limit hit, waiting {wait_time} seconds before retry {attempt + 1}/{max_retries}")
+                        time.sleep(wait_time)
+                        continue
+                    else:
+                        logger.error(f"Rate limit exceeded after {max_retries} retries. Please wait a few minutes and try again.")
+                        return False
+                else:
+                    logger.error(f"Error checking if email is job application: {e}")
+                    return False
+        
+        return False
+
+    def categorize_email(self, email_components: Dict, rules: List[Dict], pdf_text: str = '') -> Optional[str]:
         """Categorize an email based on the rules"""
         max_retries = 3
         retry_delay = 1  # seconds
         
         for attempt in range(max_retries):
             try:
-                # print("email_data", email_data)
                 # Extract email components
-                subject = self._extract_subject(email_data)
-                body = self._extract_body(email_data)
-                has_pdf = self._has_pdf_attachment(email_data)
+                subject = email_components['subject']
+                body = email_components['body']
+                has_pdf = email_components['has_pdf']
                 
                 system_prompt = """
-You are an email categorization expert. Given an email's subject, body, and PDF status, determine which rule it matches.
+You are an email categorization expert. Given an email's subject, body, PDF status, and PDF content, determine which rule it matches.
 
 For each rule, check:
 - Subject conditions (Exists, Does not Exist, Contains, Does not contain, Starts with, Ends with)
@@ -188,12 +264,11 @@ IMPORTANT:
      * Technical skills (Python, Java, React, etc.)
      * Years of experience
      * Achievements or certifications
-     This is the OPPOSITE of simple introductions like "I am [name] from [city]"
-   - "Starts with" checks if the text begins with the specified pattern
-   - "Ends with" checks if the text ends with the specified pattern
-4. Use intelligent pattern matching, not just exact text comparison.
-5. Check rules in order - first matching rule wins.
-6. Use EXACT case matching for label names.
+   This is the OPPOSITE of simple introductions like "I am [name] from [city]"
+4. For PDF skill conditions, analyze the PDF content for specific skills mentioned in the rule.
+5. Use intelligent pattern matching, not just exact text comparison.
+6. Check rules in order - first matching rule wins.
+7. Use EXACT case matching for label names.
 
 Return the label action for the matching rule, or "NO_MATCH" if no rules match.
 """
@@ -203,13 +278,15 @@ Email to categorize:
 Subject: "{subject}"
 Body: "{body}"
 Has PDF: {has_pdf}
+{f"PDF Content: {pdf_text[:2000]}..." if pdf_text else "PDF Content: Not available"}
 
 Rules to match against:
 {json.dumps(rules, indent=2)}
 
-IMPORTANT: For "Contains pattern" rules, check if the email body matches the pattern:
+IMPORTANT: 
+- For "Contains pattern" rules, check if the email body matches the pattern
+- For PDF skill conditions, analyze the PDF content for the specified skills
 - Pattern "I am [name] from [city]" means the email should contain "I am" followed by any text, then "from" followed by any text
-- The email body "{body}" should be checked against this pattern
 
 Return only the label action (e.g., "To be reviewed", "To be deleted") or "NO_MATCH".
 """
